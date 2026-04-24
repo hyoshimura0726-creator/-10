@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isRecipeValid(data) {
+      return data.keys().hasAll(['title', 'category', 'ingredients', 'steps', 'createdAt', 'ownerId']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.category is string && data.category.size() <= 50 &&
+             data.ingredients is list && data.ingredients.size() <= 100 &&
+             (data.ingredients.size() == 0 || data.ingredients[0] is map) &&
+             data.steps is list && data.steps.size() <= 100 &&
+             (data.steps.size() == 0 || data.steps[0] is map) &&
+             data.createdAt is number &&
+             data.ownerId == request.auth.uid &&
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 2000)) &&
+             (!('tags' in data) || (data.tags is list && data.tags.size() <= 50)) &&
+             (!('tips' in data) || (data.tips is string && data.tips.size() <= 2000)) &&
+             (!('isTipsPublic' in data) || data.isTipsPublic is bool) &&
+             (!('nutrition' in data) || data.nutrition is map);
+    }
+
+    match /recipes/{recipeId} {
+      allow get: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(recipeId) && isRecipeValid(incoming());
+      allow update: if isSignedIn() && isValidId(recipeId) && isRecipeValid(incoming()) && incoming().ownerId == existing().ownerId;
+      allow delete: if isSignedIn() && isValidId(recipeId) && existing().ownerId == request.auth.uid;
+    }
+  }
+}

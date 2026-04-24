@@ -1,0 +1,6 @@
+{
+  "name": "My Recipe Book",
+  "description": "A personal recipe book application to store recipes, ingredients, steps, and secret tips.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
